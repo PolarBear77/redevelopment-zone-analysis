@@ -6,8 +6,10 @@
     SEOUL_API_KEY   서울 열린데이터광장 인증키 (없으면 샘플 키, 5건 제한)
     DATA_GO_KR_KEY  공공데이터포털 인증키 (건축물대장, 실거래가)
 """
+import functools
 import sys
 import tempfile
+from datetime import date
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -27,6 +29,11 @@ SAMPLE_SIGUNGU, SAMPLE_BJDONG, SAMPLE_MONTH = "11110", "10100", "202509"
 results = []
 
 
+@functools.lru_cache(maxsize=None)
+def redev_status():
+    return sources.fetch_seoul(sources.SEOUL_REDEV_STATUS)
+
+
 def step(name):
     def wrap(fn):
         try:
@@ -37,7 +44,7 @@ def step(name):
         except urllib.error.HTTPError as e:
             status = "KEY_INVALID" if e.code in (401, 403) else "FAIL"
             detail = f"HTTP {e.code}: 인증키가 틀렸거나 해당 API 활용신청이 승인되지 않았습니다" if status == "KEY_INVALID" else str(e)
-        except Exception as e:  # 점검 스크립트이므로 실패 내용을 그대로 기록한다
+        except Exception as e:
             status, detail = "FAIL", f"{type(e).__name__}: {e}"
         results.append((name, status, detail))
         print(f"[{status}] {name}\n    {detail}")
@@ -48,7 +55,7 @@ def step(name):
 
 @step("1. 후보 구역 목록 (정비사업 현황 TbSeoulRedevStatus)")
 def _():
-    rows, total = sources.fetch_seoul(sources.SEOUL_REDEV_STATUS)
+    rows, total = redev_status()
     stages = sorted({r["BIZ_STAGE"] for r in rows})
     return "OK", f"전체 {total}건, 표본 {len(rows)}건, 단계 예: {', '.join(stages)}"
 
@@ -71,7 +78,7 @@ def _():
 
 @step("3. 구역 사업성 지표 (기존 세대 대비 신축, 분양 비중, 단계 소요기간)")
 def _():
-    rows, _ = sources.fetch_seoul(sources.SEOUL_REDEV_STATUS)
+    rows, _ = redev_status()
     lines = []
     for s in map(sources.zone_summary, rows):
         npe = f"{s['new_per_existing']:.2f}배" if s["new_per_existing"] else "주택 계획 없음"
@@ -86,16 +93,14 @@ def _():
         sources.BUILDING_TITLE,
         {"sigunguCd": SAMPLE_SIGUNGU, "bjdongCd": SAMPLE_BJDONG, "numOfRows": 100, "pageNo": 1},
     )
-    from datetime import date
-
     aging = metrics.aging_rate(sources.building_records(items), as_of=date.today(), years=30)
     return "OK", f"표본 {len(items)}/{total}동, 30년 이상 동수 비율 {aging['by_count']:.0%}"
 
 
 @step("5. 실거래가 (연립다세대·아파트 매매)")
 def _():
-    villa, vt = sources.fetch_data_go_kr(sources.VILLA_TRADE, {"LAWD_CD": SAMPLE_SIGUNGU, "DEAL_YMD": SAMPLE_MONTH})
-    apt, at = sources.fetch_data_go_kr(sources.APT_TRADE, {"LAWD_CD": SAMPLE_SIGUNGU, "DEAL_YMD": SAMPLE_MONTH})
+    _, vt = sources.fetch_data_go_kr(sources.VILLA_TRADE, {"LAWD_CD": SAMPLE_SIGUNGU, "DEAL_YMD": SAMPLE_MONTH})
+    _, at = sources.fetch_data_go_kr(sources.APT_TRADE, {"LAWD_CD": SAMPLE_SIGUNGU, "DEAL_YMD": SAMPLE_MONTH})
     return "OK", f"연립다세대 {vt}건, 아파트 {at}건"
 
 

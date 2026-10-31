@@ -1,4 +1,3 @@
-"""재개발 구역 평가 지표 계산. 금액 단위는 호출하는 쪽에서 통일한다."""
 from datetime import date
 from typing import Iterable, List, Optional, Tuple
 

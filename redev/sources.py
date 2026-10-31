@@ -1,4 +1,3 @@
-"""공공데이터 API 호출과 응답 파싱. 표준 라이브러리만 쓴다."""
 import json
 import os
 import urllib.parse
@@ -90,7 +89,6 @@ def zone_summary(row: dict) -> dict:
 
 
 def building_records(items: List[dict]) -> List[dict]:
-    """건축물대장 표제부 항목을 노후도 계산 입력으로 바꾼다."""
     records = []
     for item in items:
         raw = item.get("useAprDay", "")
