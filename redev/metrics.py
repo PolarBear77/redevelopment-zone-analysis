@@ -69,6 +69,10 @@ def building_density(building_count: int, zone_area_m2: float) -> Optional[float
 
 
 def stage_durations(row: dict) -> List[Tuple[str, str, int]]:
-    """날짜가 있는 단계끼리 이어서 (이전 단계, 다음 단계, 경과일)을 돌려준다."""
+    """날짜가 있는 단계를 날짜순으로 이어서 (이전 단계, 다음 단계, 경과일)을 돌려준다.
+
+    실제 데이터에 추진위 날짜가 구역지정보다 앞선 구역이 있어서(예: 효창공원앞역세권) 단계 순서가 아니라 날짜순으로 잇는다.
+    """
     dated = [(name, date.fromisoformat(row[field][:10])) for name, field in STAGE_FIELDS if row.get(field)]
+    dated.sort(key=lambda stage: stage[1])
     return [(a, b, (db - da).days) for (a, da), (b, db) in zip(dated, dated[1:])]
